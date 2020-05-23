@@ -3,9 +3,13 @@
 namespace App\Console\Commands;
 
 use App\Managers\CrontabManager;
+use App\Models\Crontab;
 use App\Models\CrontabRunLog;
 use App\Services\HttpClientService;
+use Carbon\Carbon;
+use Cron\CronExpression;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Songyz\Common\Library\Tools;
 
@@ -128,12 +132,33 @@ class WsServer extends Command
         $list = $this->getCrontabList();
 
         $phpPath = $this->findPhpPath();
+        $outPath = config('script.output_path');
+        $today = date('Ymd');
+        $service = new HttpClientService();
+
 
         foreach ($list->results as $key => $val) {
-
-            if ($val['executeNum'] > $val['maxNum']) {
+            if ($val['maxNum'] != 0 && $val['executeNum'] > $val['maxNum']) {
                 continue;
             }
+
+            if ($val['scriptNav'] == 2) { //每隔多长时间执行一次
+                swoole_timer_tick($val['everyTimeRun'],
+                    function ($timerId) use (&$val, $phpPath, $outPath, $today, $service) {
+                        $this->runScript($val, $timerId, $phpPath, $outPath, $today, $service);
+                    });
+
+            } else {
+                //分时日月周
+                swoole_timer_tick(60000, function ($timerId) use (&$val, $phpPath, $outPath, $today, $service) {
+                    $cron = CronExpression::factory($val['schedule']);
+                    if($cron->isDue()){
+                        //判断是不是到了执行时间
+                        $this->runScript($val, $timerId, $phpPath, $outPath, $today, $service);
+                    }
+                });
+            }
+
 
 //            swoole_timer_tick(1000,function($timerId){
 //                $monitor = new Monitor();
@@ -150,31 +175,66 @@ class WsServer extends Command
 //            });
 
 
-            $outPath = config('script.output_path');
-            $today = date('Ymd');
-            if ($val['crontanType'] == '1') { //脚本 artisan
-                $command = $phpPath . ' ' . $val['content'] . ' 2>&1 >>' . $outPath . DIRECTORY_SEPARATOR . $today . '.log';
-                exec($command, $output, $status);
-                $result = ['command' => $command, 'out' => $output, 'status' => $status];
-
-                $this->saveRunLog($val['id'], $val['title'], $result);
-            } elseif ($val['crontanType'] == '2') { //脚本 http请求
-                $service = new HttpClientService();
-                //一般情况下，就是去访问远程 这里通过curl的形式去请求
-                $data = $service->fetchGet($val['content']);
-                $result = array_merge([$data], ['httpUrl' => $val['content']]);
-                $this->saveRunLog($val['id'], $val['title'], $result);
-            }
+            /* if ($val['crontanType'] == '1') { //脚本 artisan
+                 $command = $phpPath . ' ' . $val['content'] . ' 2>&1 >>' . $outPath . DIRECTORY_SEPARATOR . $today . '.log';
+                 exec($command, $output, $status);
+                 $result = ['command' => $command, 'out' => $output, 'status' => $status];
+                 Crontab::getQuery()->find($val['id'])->update(['execute_num' => DB::raw('execute_num+1')]);
+                 $this->saveRunLog($val['id'], $val['title'], $result);
+             } elseif ($val['crontanType'] == '2') { //脚本 http请求
+                 $service = new HttpClientService();
+                 //一般情况下，就是去访问远程 这里通过curl的形式去请求
+                 $data = $service->fetchGet($val['content']);
+                 $result = array_merge([$data], ['httpUrl' => $val['content']]);
+                 Crontab::getQuery()->find($val['id'])->update(['execute_num' => DB::raw('execute_num+1')]);
+                 $this->saveRunLog($val['id'], $val['title'], $result);
+             }*/
 
         }
 
         return true;
     }
 
+    // 执行脚本
+    private function runScript(&$val, $timerId, $phpPath, $outPath, $today, $service)
+    {
+        if ($val['maxNum'] != 0 && $val['executeNum'] > $val['maxNum']) {
+            //脚本执行次数到了，需要退出
+            swoole_timer_clear($timerId);
+        }
+
+        $submitTime = Carbon::createFromTimeString($val['startTime']);
+        $endTime = Carbon::createFromTimeString($val['endTime']);
+        $currentTime = Carbon::parse();
+        if ($currentTime->gt($endTime)) {
+            swoole_timer_clear($timerId);
+        } elseif (!$currentTime->between($submitTime, $endTime)) {
+            return; //如果不在时间范围内，则证明脚本未到执行的时间
+        }
+
+        if ($val['crontanType'] == '1') { //脚本 artisan
+            $command = $phpPath . ' ' . $val['content'] . ' 2>&1 >>' . $outPath . DIRECTORY_SEPARATOR . $today . '.log';
+            exec($command, $output, $status);
+            $result = ['command' => $command, 'out' => $output, 'status' => $status];
+            Crontab::getQuery()->find($val['id'])->update(['execute_num' => DB::raw('execute_num+1')]);
+            $this->saveRunLog($val['id'], $val['title'], $result);
+            unset($command);
+        } elseif ($val['crontanType'] == '2') { //脚本 http请求
+            //一般情况下，就是去访问远程 这里通过curl的形式去请求
+            $data = $service->fetchGet($val['content']);
+            $result = array_merge([$data], ['httpUrl' => $val['content']]);
+            Crontab::getQuery()->find($val['id'])->update(['execute_num' => DB::raw('execute_num+1')]);
+            $this->saveRunLog($val['id'], $val['title'], $result);
+            unset($data);
+        }
+        $val['executeNum'] = $val['executeNum'] + 1;
+        unset($result, $val);
+    }
+
     /**
      * 获取计划任务列表
      * getCrontabList
-     * @return \Songyz\Library\DefaultPage
+     * @return \Songyz\Simple\Orm\Library\DefaultPage
      *
      * @date 2020/5/21 15:31
      */
