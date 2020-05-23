@@ -147,15 +147,22 @@ class WsServer extends Command
 
             $whichVal = 'val' . $val['id'];
             $$whichVal = $val;
+
             if ($val['scriptNav'] == 2) { //每隔多长时间执行一次
-                swoole_timer_tick($val['everyTimeRun'],
-                    function ($timerId, &$val) use ($phpPath, $outPath, $today, $service) {
+                $ws->tick($val['everyTimeRun'],
+                    function ($timerId, $val) use ($phpPath, $outPath, $today, $service) {
+                        if (!isset($this->ws->{$timerId})) {
+                            $this->ws->{$timerId} = $val['executeNum'];
+                        }
                         $this->runScript($val, $timerId, $phpPath, $outPath, $today, $service);
                     }, $$whichVal);
 
             } else {
                 //分时日月周
-                swoole_timer_tick(60000, function ($timerId, &$val) use ($phpPath, $outPath, $today, $service) {
+                $ws->tick(60000, function ($timerId, $val) use ($phpPath, $outPath, $today, $service) {
+                    if (!isset($this->ws->{$timerId})) {
+                        $this->ws->{$timerId} = $val['executeNum'];
+                    }
                     $cron = CronExpression::factory($val['schedule']);
                     if ($cron->isDue()) {
                         //判断是不是到了执行时间
@@ -201,9 +208,9 @@ class WsServer extends Command
     }
 
     // 执行脚本
-    private function runScript(&$val, $timerId, $phpPath, $outPath, $today, $service)
+    private function runScript($val, $timerId, $phpPath, $outPath, $today, $service)
     {
-        if ($val['maxNum'] != 0 && $val['executeNum'] >= $val['maxNum']) {
+        if ($val['maxNum'] != 0 && $this->ws->{$timerId} >= $val['maxNum']) {
             //脚本执行次数到了，需要退出
             swoole_timer_clear($timerId);
         }
@@ -232,6 +239,7 @@ class WsServer extends Command
             $this->saveRunLog($val['id'], $val['title'], $result);
             unset($data);
         }
+        $this->ws->{$timerId} = $this->ws->{$timerId} + 1;
         $val['executeNum'] = $val['executeNum'] + 1;
         unset($result, $val);
     }
