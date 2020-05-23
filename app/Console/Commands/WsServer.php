@@ -92,16 +92,20 @@ class WsServer extends Command
 
     private function start()
     {
-        $this->setTimer('ws', 1);
-        exit;
         $this->ws = new \swoole_server('127.0.0.1', config('script.port'));
         $this->ws->on('start', function ($ws) {
             swoole_set_process_name(config('script.server_name'));
         });
         $this->ws->on('workerStart', function ($ws, $workerId) {
+            $ws->tick(1000, function ($timerId) {
+                $this->info(Tools::getCurrentDate() . ' 执行中...');
+            });
+
+            $this->info('ws workerStart 启动...');
             $this->setTimer($ws, $workerId);
         });
-        $this->ws->on('receive', function ($serv, $fd, $reactor_id, $data) {
+
+        $this->ws->on('receive', function ($server, $fd, $reactor_id, $data) {
 
         });
         $this->ws->start();
@@ -136,27 +140,27 @@ class WsServer extends Command
         $today = date('Ymd');
         $service = new HttpClientService();
 
-
         foreach ($list->results as $key => $val) {
-            if ($val['maxNum'] != 0 && $val['executeNum'] > $val['maxNum']) {
+            if ($val['executeNum'] != 0 && $val['executeNum'] > $val['maxNum']) {
                 continue;
             }
-
+            $whichVal = 'val' . $val['id'];
+            $$whichVal = $val;
             if ($val['scriptNav'] == 2) { //每隔多长时间执行一次
                 swoole_timer_tick($val['everyTimeRun'],
-                    function ($timerId) use (&$val, $phpPath, $outPath, $today, $service) {
+                    function ($timerId, &$val) use ($phpPath, $outPath, $today, $service) {
                         $this->runScript($val, $timerId, $phpPath, $outPath, $today, $service);
-                    });
+                    }, $$whichVal);
 
             } else {
                 //分时日月周
-                swoole_timer_tick(60000, function ($timerId) use (&$val, $phpPath, $outPath, $today, $service) {
+                swoole_timer_tick(60000, function ($timerId, &$val) use ($phpPath, $outPath, $today, $service) {
                     $cron = CronExpression::factory($val['schedule']);
-                    if($cron->isDue()){
+                    if ($cron->isDue()) {
                         //判断是不是到了执行时间
                         $this->runScript($val, $timerId, $phpPath, $outPath, $today, $service);
                     }
-                });
+                }, $$whichVal);
             }
 
 
@@ -198,7 +202,7 @@ class WsServer extends Command
     // 执行脚本
     private function runScript(&$val, $timerId, $phpPath, $outPath, $today, $service)
     {
-        if ($val['maxNum'] != 0 && $val['executeNum'] > $val['maxNum']) {
+        if ($val['executeNum'] != 0 && $val['executeNum'] >= $val['maxNum']) {
             //脚本执行次数到了，需要退出
             swoole_timer_clear($timerId);
         }
@@ -241,8 +245,9 @@ class WsServer extends Command
     private function getCrontabList()
     {
         $manager = new CrontabManager();
+        $where = [get_where_condition('status', 1)];
 
-        return $manager->getList([], [], 100);
+        return $manager->getList($where, [], 100);
     }
 
     //将数据保存到数据库
