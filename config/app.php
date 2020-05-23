@@ -174,8 +174,7 @@ return [
         // App\Providers\BroadcastServiceProvider::class,
         App\Providers\EventServiceProvider::class,
         App\Providers\RouteServiceProvider::class,
-        Songyz\Providers\ScaffoldConfigPublishProvider::class,
-
+        \Songyz\Simple\Orm\Providers\ScaffoldConfigPublishProvider::class
     ],
 
     /*
