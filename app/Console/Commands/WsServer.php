@@ -141,9 +141,10 @@ class WsServer extends Command
         $service = new HttpClientService();
 
         foreach ($list->results as $key => $val) {
-            if ($val['executeNum'] != 0 && $val['executeNum'] > $val['maxNum']) {
+            if ($val['maxNum'] != 0 && $val['executeNum'] > $val['maxNum']) {
                 continue;
             }
+
             $whichVal = 'val' . $val['id'];
             $$whichVal = $val;
             if ($val['scriptNav'] == 2) { //每隔多长时间执行一次
@@ -202,7 +203,7 @@ class WsServer extends Command
     // 执行脚本
     private function runScript(&$val, $timerId, $phpPath, $outPath, $today, $service)
     {
-        if ($val['executeNum'] != 0 && $val['executeNum'] >= $val['maxNum']) {
+        if ($val['maxNum'] != 0 && $val['executeNum'] >= $val['maxNum']) {
             //脚本执行次数到了，需要退出
             swoole_timer_clear($timerId);
         }
