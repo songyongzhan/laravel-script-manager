@@ -84,15 +84,20 @@ class WsServer extends Command
 
     private function start()
     {
-        $this->ws = new swoole_server('127.0.0.1', config('script.port'));
+
+        $this->ws = new \swoole_server('127.0.0.1', config('script.port'));
 
         $this->ws->on('start', function ($ws) {
             swoole_set_process_name(config('script.server_name'));
         });
 
         $this->ws->on('workerStart', function ($ws, $workerId) {
-            $this->setTimer($ws, $workerId);
+            //$this->setTimer($ws, $workerId);
         });
+
+	$this->ws->on('receive',function( $serv, $fd, $reactor_id, $data){
+
+	});	
 
         $this->ws->start();
     }
