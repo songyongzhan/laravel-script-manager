@@ -9,11 +9,7 @@ Route::group([
     'namespace'     => config('admin.route.namespace'),
     'middleware'    => config('admin.route.middleware'),
 ], function (Router $router) {
-
-
-
-
     $router->get('/', 'HomeController@index')->name('admin.home');
     $router->resource('crontabs', CrontabController::class);
-
+    $router->resource('crontab-run-logs', CrontabRunLogController::class);
 });

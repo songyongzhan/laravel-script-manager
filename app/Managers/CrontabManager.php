@@ -2,9 +2,9 @@
 
 namespace App\Managers;
 
-use Songyz\Core\DatabaseManager;
-use Songyz\Core\DatabaseService;
 use App\Services\CrontabService;
+use Songyz\Simple\Orm\Core\DatabaseManager;
+use Songyz\Simple\Orm\Core\DatabaseService;
 
 /**
  * crontab

@@ -3,9 +3,11 @@
 namespace App\Console\Commands;
 
 use App\Managers\CrontabManager;
+use App\Models\CrontabRunLog;
 use App\Services\HttpClientService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
+use Songyz\Common\Library\Tools;
 
 class WsServer extends Command
 {
@@ -52,17 +54,19 @@ class WsServer extends Command
         if (empty($command)) {
             //输出选择项
             $commandMaps = [
+                '-',
                 'start',
                 'restart',
                 'stop',
             ];
             $commandNames = [
+                ['-', ''],
                 ['启动', 'start'],
                 ['重新启动', 'restart'],
                 ['停止', 'stop'],
             ];
             $this->table(['命令', '描述'], $commandNames);
-            $command = $this->choice('请输入命令', $commandMaps, 0);
+            $command = $this->choice('请输入命令', $commandMaps, 1);
         }
 
 
@@ -84,53 +88,52 @@ class WsServer extends Command
 
     private function start()
     {
-
+        $this->setTimer('ws', 1);
+        exit;
         $this->ws = new \swoole_server('127.0.0.1', config('script.port'));
-
         $this->ws->on('start', function ($ws) {
             swoole_set_process_name(config('script.server_name'));
         });
-
         $this->ws->on('workerStart', function ($ws, $workerId) {
-            //$this->setTimer($ws, $workerId);
+            $this->setTimer($ws, $workerId);
         });
+        $this->ws->on('receive', function ($serv, $fd, $reactor_id, $data) {
 
-	$this->ws->on('receive',function( $serv, $fd, $reactor_id, $data){
-
-	});	
-
+        });
         $this->ws->start();
     }
 
     private function restart()
     {
-
-        exec('kill -USR1 `pidof ' . config('script.server_name') . '`', $out, $status);
-
-        dump($out);
-        dump($status);
-
+        $this->alert('执行restart命令：');
+        $shellCommand = 'kill -USR1 `pidof ' . config('script.server_name') . '`';
+        exec($shellCommand, $out, $status);
+        $this->info('restart执行结果:' . json_encode($out, JSON_UNESCAPED_UNICODE) . ' return_var:' . $status);
     }
 
     private function stop()
     {
-        $this->ws->stop();
-
-        $this->info('服务已关闭');
+        $this->alert('执行stop命令：');
+        $shellCommand = 'kill -9 `pidof ' . config('script.server_name') . '`';
+        exec($shellCommand, $out, $status);
+        if ($status == 0) {
+            $this->info('服务已关闭');
+        } else {
+            $this->info('服务关闭失败' . json_encode($out, JSON_UNESCAPED_UNICODE) . ' return_var:' . $status);
+        }
     }
 
-
-    private function setTimer()
+    private function setTimer($ws, $workerId)
     {
         $list = $this->getCrontabList();
 
+        $phpPath = $this->findPhpPath();
 
         foreach ($list->results as $key => $val) {
 
-            if ($val['execute_num'] > $val['max_num']) {
+            if ($val['executeNum'] > $val['maxNum']) {
                 continue;
             }
-
 
 //            swoole_timer_tick(1000,function($timerId){
 //                $monitor = new Monitor();
@@ -147,17 +150,25 @@ class WsServer extends Command
 //            });
 
 
+            $outPath = config('script.output_path');
+            $today = date('Ymd');
             if ($val['crontanType'] == '1') { //脚本 artisan
-                exec(" E:\phpStudy\php\php-5.2.17\php -r \"echo 11;\" ", $output, $status);
-                Log::info($output);
-                Log::info($status);
+                $command = $phpPath . ' ' . $val['content'] . ' 2>&1 >>' . $outPath . DIRECTORY_SEPARATOR . $today . '.log';
+                exec($command, $output, $status);
+                $result = ['command' => $command, 'out' => $output, 'status' => $status];
+
+                $this->saveRunLog($val['id'], $val['title'], $result);
             } elseif ($val['crontanType'] == '2') { //脚本 http请求
                 $service = new HttpClientService();
                 //一般情况下，就是去访问远程 这里通过curl的形式去请求
                 $data = $service->fetchGet($val['content']);
+                $result = array_merge([$data], ['httpUrl' => $val['content']]);
+                $this->saveRunLog($val['id'], $val['title'], $result);
             }
 
         }
+
+        return true;
     }
 
     /**
@@ -173,5 +184,38 @@ class WsServer extends Command
 
         return $manager->getList([], [], 100);
     }
+
+    //将数据保存到数据库
+    private function saveRunLog(int $id, string $title, array $result)
+    {
+        $data = [
+            'crontab_id' => $id,
+            'title' => $title,
+            'result_content' => json_encode($result, JSON_UNESCAPED_UNICODE),
+            'run_time' => Tools::getCurrentDate()
+        ];
+        $res = CrontabRunLog::getQuery()->create($data);
+        Log::channel('shell')->info($id . ' ' . $title . ' 插入插入数据库:' . $res->id, $data);
+    }
+
+    /**
+     * 获取php所在位置
+     * findPhpPath
+     * @return mixed
+     *
+     * @date 2020/5/23 17:01
+     */
+    private function findPhpPath()
+    {
+        $shellCommand = 'which php';
+        exec($shellCommand, $out, $status);
+        if ($status != 0) {
+            $this->info('没有找到php所在位置');
+            exit;
+        }
+
+        return $out[0];
+    }
+
 
 }
