@@ -109,20 +109,20 @@ class WsServer extends Command
 
         });
 
-        $this->ws->on('workerstop', function (swoole_server $ws, $workerId) {
+        $this->ws->on('workerstop', function ($ws, $workerId) {
             Log::channel('shell')->info(Tools::getCurrentDate() . 'workerstop停止 workerId' . $workerId);
         });
 
-        $this->ws->on('managerstart', function (swoole_server $ws) {
+        $this->ws->on('managerstart', function ($ws) {
 
             Log::channel('shell')->info(Tools::getCurrentDate() . 'managerstart启动');
         });
 
-        $this->ws->on('managerstop', function (swoole_server $ws) {
+        $this->ws->on('managerstop', function ($ws) {
             Log::channel('shell')->info(Tools::getCurrentDate() . 'managerstop退出');
         });
 
-        $this->ws->on('shutdown', function (swoole_server $ws) {
+        $this->ws->on('shutdown', function ($ws) {
             Log::channel('shell')->info(Tools::getCurrentDate() . '脚本服务程序退出');
         });
 
@@ -188,38 +188,6 @@ class WsServer extends Command
                     }
                 }, $$whichVal);
             }
-
-
-//            swoole_timer_tick(1000,function($timerId){
-//                $monitor = new Monitor();
-//                $monitor -> serverName('nginx');
-//                echo "每隔1000毫秒执行一次".$timerId."\n";
-//                unset($monitor);
-//            });
-//
-//            swoole_timer_tick(3000,function($timerId){
-//                $monitor = new Monitor();
-//                $monitor->serverName('mysql');
-//                echo "每隔3秒执行一次".$timerId."\n";
-//                unset($monitor);
-//            });
-
-
-            /* if ($val['crontanType'] == '1') { //脚本 artisan
-                 $command = $phpPath . ' ' . $val['content'] . ' 2>&1 >>' . $outPath . DIRECTORY_SEPARATOR . $today . '.log';
-                 exec($command, $output, $status);
-                 $result = ['command' => $command, 'out' => $output, 'status' => $status];
-                 Crontab::getQuery()->find($val['id'])->update(['execute_num' => DB::raw('execute_num+1')]);
-                 $this->saveRunLog($val['id'], $val['title'], $result);
-             } elseif ($val['crontanType'] == '2') { //脚本 http请求
-                 $service = new HttpClientService();
-                 //一般情况下，就是去访问远程 这里通过curl的形式去请求
-                 $data = $service->fetchGet($val['content']);
-                 $result = array_merge([$data], ['httpUrl' => $val['content']]);
-                 Crontab::getQuery()->find($val['id'])->update(['execute_num' => DB::raw('execute_num+1')]);
-                 $this->saveRunLog($val['id'], $val['title'], $result);
-             }*/
-
         }
 
         return true;
