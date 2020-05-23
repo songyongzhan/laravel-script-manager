@@ -89,7 +89,7 @@ class WsServer extends Command
         }
     }
 
-
+    //脚本启动
     private function start()
     {
         $this->ws = new \swoole_server('127.0.0.1', config('script.port'));
@@ -98,7 +98,7 @@ class WsServer extends Command
         });
         $this->ws->on('workerStart', function ($ws, $workerId) {
             $ws->tick(1000, function ($timerId) {
-                $this->info(Tools::getCurrentDate() . ' 执行中...');
+                $this->info(Tools::getCurrentDate() . ' 执行中... 内存使用率:' . $this->getMemoryUsage());
             });
 
             $this->info('ws workerStart 启动...');
@@ -108,6 +108,24 @@ class WsServer extends Command
         $this->ws->on('receive', function ($server, $fd, $reactor_id, $data) {
 
         });
+
+        $this->ws->on('workerstop', function (swoole_server $ws, $workerId) {
+            Log::channel('shell')->info(Tools::getCurrentDate() . 'workerstop停止 workerId' . $workerId);
+        });
+
+        $this->ws->on('managerstart', function (swoole_server $ws) {
+
+            Log::channel('shell')->info(Tools::getCurrentDate() . 'managerstart启动');
+        });
+
+        $this->ws->on('managerstop', function (swoole_server $ws) {
+            Log::channel('shell')->info(Tools::getCurrentDate() . 'managerstop退出');
+        });
+
+        $this->ws->on('shutdown', function (swoole_server $ws) {
+            Log::channel('shell')->info(Tools::getCurrentDate() . '脚本服务程序退出');
+        });
+
         $this->ws->start();
     }
 
@@ -289,6 +307,23 @@ class WsServer extends Command
         }
 
         return $out[0];
+    }
+
+
+    private function getMemoryUsage()
+    {
+        // MEMORY
+        if (false === ($str = @file("/proc/meminfo"))) {
+            return false;
+        }
+        $str = implode("", $str);
+        preg_match_all("/MemTotal\s{0,}\:+\s{0,}([\d\.]+).+?MemFree\s{0,}\:+\s{0,}([\d\.]+).+?Cached\s{0,}\:+\s{0,}([\d\.]+).+?SwapTotal\s{0,}\:+\s{0,}([\d\.]+).+?SwapFree\s{0,}\:+\s{0,}([\d\.]+)/s",
+            $str, $buf);
+
+        $memTotal = round($buf[1][0] / 1024, 2);
+        $memFree = round($buf[2][0] / 1024, 2);
+        $memUsed = $memTotal - $memFree;
+        return (floatval($memTotal) != 0) ? round($memUsed / $memTotal * 100, 2) : 0;
     }
 
 
