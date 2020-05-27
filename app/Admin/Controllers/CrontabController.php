@@ -87,7 +87,7 @@ class CrontabController extends AdminController
     public function platformInfo()
     {
         //潘窜程序是否运行， 内存使用情况
-        $shellCommand = 'netstat -ntlp | grep ' . config('script.server_name') . ' | wc -l';
+        $shellCommand = 'netstat -ntlp | grep ' . config('script.port') . ' | wc -l';
         $memory = $this->getMemoryUsage();
 
         exec($shellCommand, $result, $status);
@@ -97,7 +97,7 @@ class CrontabController extends AdminController
         }
 
         //证明程序已经启动
-        return response()->json(['code' => 1, 'message' => '失败', 'data' => ['wsRun' => 1, 'memory' => $memory]]);
+        return response()->json(['code' => 1, 'message' => '成功', 'data' => ['wsRun' => 1, 'memory' => $memory]]);
     }
 
     public function reStart()
