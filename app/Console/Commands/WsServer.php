@@ -92,6 +92,14 @@ class WsServer extends Command
     //脚本启动
     private function start()
     {
+
+        $shellCommand = 'netstat -ntlp | grep ' . config('script.port') . ' | wc -l';
+        exec($shellCommand, $result, $status);
+        if (isset($result[0]) && $result[0] != 0) {
+            $this->info('系统已启动');
+            return;
+        }
+
         $this->ws = new \swoole_server('127.0.0.1', config('script.port'));
         $this->ws->on('start', function ($ws) {
             swoole_set_process_name(config('script.server_name'));
@@ -174,6 +182,7 @@ class WsServer extends Command
                             $this->ws->{$timerId} = $val['executeNum'];
                         }
                         $this->runScript($val, $timerId, $phpPath, $outPath, $today, $service);
+                        unset($val, $timerId, $phpPath, $outPath, $today, $service);
                     }, $$whichVal);
 
             } else {
@@ -186,6 +195,7 @@ class WsServer extends Command
                     if ($cron->isDue()) {
                         //判断是不是到了执行时间
                         $this->runScript($val, $timerId, $phpPath, $outPath, $today, $service);
+                        unset($val, $timerId, $phpPath, $outPath, $today, $service);
                     }
                 }, $$whichVal);
             }
