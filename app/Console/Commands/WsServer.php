@@ -97,9 +97,9 @@ class WsServer extends Command
             swoole_set_process_name(config('script.server_name'));
         });
         $this->ws->on('workerStart', function ($ws, $workerId) {
-            $ws->tick(1000, function ($timerId) {
-                $this->info(Tools::getCurrentDate() . ' 执行中... 内存使用率:' . $this->getMemoryUsage());
-            });
+//            $ws->tick(1000, function ($timerId) {
+//                $this->info(Tools::getCurrentDate() . ' 执行中... 内存使用率:' . $this->getMemoryUsage());
+//            });
 
             $this->info('ws workerStart 启动...');
             $this->setTimer($ws, $workerId);
@@ -168,7 +168,7 @@ class WsServer extends Command
             $$whichVal = $val;
 
             if ($val['scriptNav'] == 2) { //每隔多长时间执行一次
-                $ws->tick($val['everyTimeRun'],
+                $this->ws->tick($val['everyTimeRun'],
                     function ($timerId, $val) use ($phpPath, $outPath, $today, $service) {
                         if (!isset($this->ws->{$timerId})) {
                             $this->ws->{$timerId} = $val['executeNum'];
@@ -178,7 +178,7 @@ class WsServer extends Command
 
             } else {
                 //分时日月周
-                $ws->tick(60000, function ($timerId, $val) use ($phpPath, $outPath, $today, $service) {
+                $this->ws->tick(60000, function ($timerId, $val) use ($phpPath, $outPath, $today, $service) {
                     if (!isset($this->ws->{$timerId})) {
                         $this->ws->{$timerId} = $val['executeNum'];
                     }
