@@ -100,7 +100,7 @@ class WsServer extends Command
             return;
         }
 
-        $this->ws = new \swoole_server('127.0.0.1', config('script.port'));
+        $this->ws = new \swoole_websocket_server('127.0.0.1', config('script.port'));
         $this->ws->on('start', function ($ws) {
             swoole_set_process_name(config('script.server_name'));
         });
@@ -116,6 +116,31 @@ class WsServer extends Command
         $this->ws->on('receive', function ($server, $fd, $reactor_id, $data) {
 
         });
+        $this->ws->on('open', function ($server, $request) {
+
+            $server->tick(1000, function ($timerId) use ($server, $request) {
+                $memory = $this->getMemoryUsage();
+                $this->info(Tools::getCurrentDate() . ' 执行中... 内存使用率:' . $memory);
+                $server->push($request->fd, json_encode(['memory' => $memory], JSON_UNESCAPED_UNICODE));
+            });
+
+        });
+
+        $this->ws->on('message', function ($server, $fd) {
+
+        });
+
+        $this->ws->on('close', function ($server, $fd) {
+
+        });
+
+        $this->ws->on('task', function ($server, $taskId, $workerId, $data) {
+
+        });
+        $this->ws->on('finish', function ($server, $taskId, $data) {
+
+        });
+
 
         $this->ws->on('workerstop', function ($ws, $workerId) {
             Log::channel('shell')->info(Tools::getCurrentDate() . 'workerstop停止 workerId' . $workerId);
@@ -133,6 +158,12 @@ class WsServer extends Command
         $this->ws->on('shutdown', function ($ws) {
             Log::channel('shell')->info(Tools::getCurrentDate() . '脚本服务程序退出');
         });
+
+
+        $this->ws->set([
+            'worker_num' => 1,
+            'task_worker_num' => 1,
+        ]);
 
         $this->ws->start();
     }
