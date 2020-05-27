@@ -194,7 +194,7 @@ class WsServer extends Command
     }
 
     // 执行脚本
-    private function runScript($val, $timerId, $phpPath, $outPath, $today, $service)
+    private function runScript($val, $timerId, &$phpPath, &$outPath, &$today, &$service)
     {
         if ($val['maxNum'] != 0 && $this->ws->{$timerId} >= $val['maxNum']) {
             //脚本执行次数到了，需要退出
@@ -227,7 +227,7 @@ class WsServer extends Command
         }
         $this->ws->{$timerId} = $this->ws->{$timerId} + 1;
         $val['executeNum'] = $val['executeNum'] + 1;
-        unset($result, $val);
+        unset($result, $val, $timerId);
     }
 
     /**
@@ -276,7 +276,6 @@ class WsServer extends Command
 
         return $out[0];
     }
-
 
     private function getMemoryUsage()
     {
