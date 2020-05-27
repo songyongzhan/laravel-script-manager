@@ -159,6 +159,7 @@ class WsServer extends Command
         $service = new HttpClientService();
 
         foreach ($list->results as $key => $val) {
+            $val = Tools::dataCamel($val);
             if ($val['maxNum'] != 0 && $val['executeNum'] > $val['maxNum']) {
                 continue;
             }
