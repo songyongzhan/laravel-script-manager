@@ -100,7 +100,8 @@ class WsServer extends Command
             return;
         }
 
-        $this->ws = new \swoole_websocket_server('127.0.0.1', config('script.port'));
+        $this->ws = new \swoole_websocket_server('0.0.0.0', config('script.port'));
+        //$this->ws = new \swoole_websocket_server('0.0.0.0', 9999);
         $this->ws->on('start', function ($ws) {
             swoole_set_process_name(config('script.server_name'));
         });
@@ -181,7 +182,10 @@ class WsServer extends Command
         $this->alert('执行stop命令：');
         $shellCommand = 'kill -9 `pidof ' . config('script.server_name') . '`';
         exec($shellCommand, $out, $status);
-        if ($status == 0) {
+        Log::channel('shell')->info('stop command:'.$shellCommand);
+        Log::channel('shell')->info('stop out',$out);
+        Log::channel('shell')->info('stop status'.$status);
+	if ($status == 0) {
             $this->info('服务已关闭');
         } else {
             $this->info('服务关闭失败' . json_encode($out, JSON_UNESCAPED_UNICODE) . ' return_var:' . $status);

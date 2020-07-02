@@ -88,7 +88,7 @@ class CrontabController extends AdminController
     {
         //潘窜程序是否运行， 内存使用情况
         $shellCommand = 'netstat -ntlp | grep ' . config('script.port') . ' | wc -l';
-        $memory = $this->getMemoryUsage();
+	$memory = $this->getMemoryUsage();
 
         exec($shellCommand, $result, $status);
 
@@ -108,14 +108,21 @@ class CrontabController extends AdminController
 
     public function start()
     {
-        $result = Artisan::call('ws:run --command=start');
+	exec('/usr/local/php/php7.2.12/bin/php /data/www/laravel-script-manager/artisan ws:run --command=start', $result, $status);
+        print_r($result);
+	var_dump($status);
+	exit;
+	$result = Artisan::call('ws:run --command=start');
         return response()->json(['code' => 0, 'message' => '成功', 'data' => $result]);
     }
 
     public function stop()
     {
-        $result = Artisan::call('ws:run --command=stop');
-        return response()->json(['code' => 0, 'message' => '成功', 'data' => $result]);
+        //$result = Artisan::call('ws:run --command=stop');
+       
+        exec('/usr/local/php/php7.2.12/bin/php /data/www/laravel-script-manager/artisan ws:run --command=stop', $result, $status);
+	var_dump($result,$status);
+	return response()->json(['code' => 0, 'message' => '成功', 'data' => $result]);
     }
 
     /**
